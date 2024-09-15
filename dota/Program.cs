@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 class DotaMap
 {
@@ -250,11 +250,42 @@ class DotaMap
         {
             for (int j = 0; j < size; j++)
             {
+                if ((i == size - 1 && j == 0) || (i >= size - 10 && j < 10)) // Зелёный фонтан
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                }
+                else if ((i == 0 && j == size - 1) || (i < 10 && j >= size - 10)) // Красный фонтан
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                }
+                else if (map[i, j] == 'T') // Если это башня
+                {
+                    // Определим, находится ли башня ниже или выше реки (диагональной линии)
+                    if (i > j) // Башни ниже реки
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green; // Зелёные башни
+                    }
+                    else // Башни выше реки
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red; // Красные башни
+                    }
+                }
+                else if (map[i, j] == '~') // Если это река
+                {
+                    Console.ForegroundColor = ConsoleColor.Blue; // Синий цвет для реки
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.White; // Остальная карта
+                }
+
                 Console.Write(map[i, j] + " ");  // Добавляем пробел между символами
             }
             Console.WriteLine();
         }
+
         Console.SetCursorPosition(heroY * 2, heroX);  // Позиция героя
+        Console.ResetColor(); // Сброс цвета
     }
 
     class Program
@@ -271,3 +302,8 @@ class DotaMap
         }
     }
 }
+
+
+
+
+
