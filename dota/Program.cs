@@ -3,12 +3,69 @@ using System;
 class DotaMap
 {
     const int size = 50;  // Размер карты 50x50
+    char[,] originalMap = new char[size, size];  // Массив для сохранения исходного состояния карты
     char[,] map = new char[size, size];
+    bool[,] isOccupied = new bool[size, size]; // Для отслеживания, занята ли ячейка крипами
     int heroX = 25, heroY = 25;  // Начальная позиция героя в центре карты
+    Creeper[] creeps; // Классы для крипов
+    RedCreeper[] redCreeps;
+
+
+    // Крипы
+    class Creeper
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+        public bool HasPassedThrough { get; set; }
+        public Direction CurrentDirection { get; set; } = Direction.MovingLeft;
+    }
+
+    class RedCreeper : Creeper
+    {
+        public RedCreeper(int x, int y)
+        {
+            X = x;
+            Y = y;
+            HasPassedThrough = false;
+            CurrentDirection = Direction.MovingLeft;
+        }
+    }
+
+
+    void InitializeRedCreeps()
+    {
+        redCreeps = new RedCreeper[4];
+        for (int i = 0; i < redCreeps.Length; i++)
+        {
+            redCreeps[i] = new RedCreeper(2, 34 - i); // Начальная позиция для всех красных крипов
+        }
+    }
+
+
+    enum Direction
+    {
+        MovingLeft,
+        MovingUp,
+        MovingRight
+    }
+
 
     public DotaMap()
     {
         InitializeMap();
+        SaveOriginalMap();
+        InitializeCreeps();
+        InitializeRedCreeps(); // Инициализируем красных крипов
+    }
+
+
+    void InitializeCreeps()
+    {
+        creeps = new Creeper[4];
+        for (int i = 0; i < creeps.Length; i++)
+        {
+            creeps[i] = new Creeper { X = 34 - i, Y = 2, CurrentDirection = Direction.MovingLeft }; // Начальная позиция для всех крипов
+        }
     }
 
     void InitializeMap()
@@ -20,6 +77,8 @@ class DotaMap
                 map[i, j] = '.';  // Пустая клетка
             }
         }
+
+
 
         // Фонтан и тироид для сил Света (полусфера в левом нижнем углу)
         for (int i = size - 10; i < size; i++)
@@ -183,6 +242,137 @@ class DotaMap
         map[47, 3] = 'T';  // Башня на (47, 3)
     }
 
+    void SaveOriginalMap()
+    {
+        for (int i = 0; i < size; i++)
+        {
+            for (int j = 0; j < size; j++)
+            {
+                originalMap[i, j] = map[i, j];
+            }
+        }
+    }
+
+    void MoveCreeps()
+    {
+        // Удаляем крипов из текущих позиций
+        foreach (var creep in creeps)
+        {
+            if (creep.X >= 0 && creep.X < size && creep.Y >= 0 && creep.Y < size)
+            {
+                isOccupied[creep.X, creep.Y] = false;
+                map[creep.X, creep.Y] = creep.HasPassedThrough ? 'О' : originalMap[creep.X, creep.Y];
+            }
+        }
+
+        foreach (var redCreep in redCreeps)
+        {
+            if (redCreep.X >= 0 && redCreep.X < size && redCreep.Y >= 0 && redCreep.Y < size)
+            {
+                isOccupied[redCreep.X, redCreep.Y] = false;
+                map[redCreep.X, redCreep.Y] = redCreep.HasPassedThrough ? 'о' : originalMap[redCreep.X, redCreep.Y];
+            }
+        }
+
+        // Перемещаем обычных крипов
+        foreach (var creep in creeps)
+        {
+            switch (creep.CurrentDirection)
+            {
+                case Direction.MovingLeft:
+                    creep.X--;
+                    if (creep.X == 2 && creep.Y == 2)
+                    {
+                        creep.CurrentDirection = Direction.MovingUp;
+                    }
+                    break;
+
+                case Direction.MovingUp:
+                    creep.Y++;
+                    if (creep.X == 2 && creep.Y >= 40)
+                    {
+                        creep.CurrentDirection = Direction.MovingRight;
+                    }
+                    break;
+
+                case Direction.MovingRight:
+                    creep.X++;
+                    break;
+            }
+
+            if (creep.X >= 0 && creep.X < size && creep.Y >= 0 && creep.Y < size)
+            {
+                if (creep.X == 34 && creep.Y == 2)
+                {
+                    creep.HasPassedThrough = true;
+                }
+
+                isOccupied[creep.X, creep.Y] = true;
+                map[creep.X, creep.Y] = 'О';
+
+                if (creep.HasPassedThrough)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                }
+            }
+        }
+
+        // Перемещаем красных крипов
+        foreach (var redCreep in redCreeps)
+        {
+            if (redCreep.X >= 0 && redCreep.X < size && redCreep.Y >= 0 && redCreep.Y < size)
+            {
+                if (redCreep.X > 2)
+                {
+                    redCreep.X--;
+                }
+                else if (redCreep.Y > 2)
+                {
+                    redCreep.Y--;
+                }
+                else if (redCreep.X < size - 1)
+                {
+                    redCreep.X++;
+                }
+
+                if (redCreep.X == 2 && redCreep.Y == 2)
+                {
+                    redCreep.CurrentDirection = Direction.MovingRight; // Двигаемся вправо к трону
+                }
+
+                if (redCreep.X >= 0 && redCreep.X < size && redCreep.Y >= 0 && redCreep.Y < size)
+                {
+                    isOccupied[redCreep.X, redCreep.Y] = true;
+                    map[redCreep.X, redCreep.Y] = 'о'; // Символ для красных крипов
+
+                    if (redCreep.HasPassedThrough)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red; // Установка цвета для красных крипов
+                    }
+                }
+            }
+        }
+    }
+
+
+
+
+    void RestoreMap()
+    {
+        for (int i = 0; i < size; i++)
+        {
+            for (int j = 0; j < size; j++)
+            {
+                if (!isOccupied[i, j])
+                {
+                    map[i, j] = originalMap[i, j];
+                }
+            }
+        }
+    }
+
+
+
     void AddTowersInRow(int row, int startCol, int endCol, int numberOfTowers)
     {
         if (numberOfTowers < 1 || startCol >= endCol || row < 0 || row >= size)
@@ -243,67 +433,136 @@ class DotaMap
         }
     }
 
-    public void DisplayMap()
+    void DisplayMap()
     {
         Console.Clear();
         for (int i = 0; i < size; i++)
         {
             for (int j = 0; j < size; j++)
             {
-                if ((i == size - 1 && j == 0) || (i >= size - 10 && j < 10)) // Зелёный фонтан
+                // Определяем, находится ли текущая клетка в позиции крипа
+                bool isCreep = false;
+                ConsoleColor defaultColor = Console.ForegroundColor; // Сохраняем цвет по умолчанию
+
+                foreach (var creep in creeps)
                 {
-                    Console.ForegroundColor = ConsoleColor.Green;
-                }
-                else if ((i == 0 && j == size - 1) || (i < 10 && j >= size - 10)) // Красный фонтан
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                }
-                else if (map[i, j] == 'T') // Если это башня
-                {
-                    // Определим, находится ли башня ниже или выше реки (диагональной линии)
-                    if (i > j) // Башни ниже реки
+                    if (creep.X == i && creep.Y == j)
                     {
-                        Console.ForegroundColor = ConsoleColor.Green; // Зелёные башни
+                        isCreep = true;
+                        // Если это крип, который начинается с (38, 2), устанавливаем зелёный цвет
+                        if (creep.X == 38 && creep.Y == 2)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Green;
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.White;
+                        }
+                        break;
                     }
-                    else // Башни выше реки
+                    if (creep.X == i && creep.Y == j)
                     {
-                        Console.ForegroundColor = ConsoleColor.Red; // Красные башни
+                        isCreep = true;
+                        // Если это крип, который начинается с (38, 2), устанавливаем зелёный цвет
+                        if (creep.X == 2 && creep.Y == 34)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.White;
+                        }
+                        break;
                     }
                 }
-                else if (map[i, j] == '~') // Если это река
+                if (map[i, j] == 'о')
                 {
-                    Console.ForegroundColor = ConsoleColor.Blue; // Синий цвет для реки
+                    Console.ForegroundColor = ConsoleColor.Red; // Установка цвета для символа крипов
                 }
                 else
                 {
-                    Console.ForegroundColor = ConsoleColor.White; // Остальная карта
+                    Console.ForegroundColor = ConsoleColor.White; // Цвет для остальных символов
+                }
+                if (map[i, j] == 'О')
+                {
+                    Console.ForegroundColor = ConsoleColor.Green; // Установка цвета для символа крипов
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.White; // Цвет для остальных символов
+                }
+                
+                // Если это не крип, устанавливаем цвет по умолчанию или цвет для других объектов
+                if (!isCreep)
+                {
+                    
+                    if ((i == size - 1 && j == 0) || (i >= size - 10 && j < 10)) // Зелёный фонтан
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                    }
+                    else if ((i == 0 && j == size - 1) || (i < 10 && j >= size - 10)) // Красный фонтан
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                    }
+                    else if (map[i, j] == 'T') // Если это башня
+                    {
+                        if (i > j) // Башни ниже реки
+                        {
+                            Console.ForegroundColor = ConsoleColor.Green;
+                        }
+                        else // Башни выше реки
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                        }
+                    }
+                    else if (map[i, j] == '~') // Если это река
+                    {
+                        Console.ForegroundColor = ConsoleColor.Blue;
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.White;
+                    }
+                    
                 }
 
-                Console.Write(map[i, j] + " ");  // Добавляем пробел между символами
+                Console.Write(map[i, j] + " ");
+                Console.ForegroundColor = defaultColor; // Возвращаем цвет по умолчанию
+                
             }
             Console.WriteLine();
+
         }
 
-        Console.SetCursorPosition(heroY * 2, heroX);  // Позиция героя
-        Console.ResetColor(); // Сброс цвета
+        Console.SetCursorPosition(heroY * 2, heroX);
+        Console.ResetColor();
     }
+
+
 
     class Program
     {
         static void Main()
         {
             DotaMap map = new DotaMap();
-            map.DisplayMap();
 
             while (true)
             {
-                char command = Console.ReadKey().KeyChar;
+                map.DisplayMap();
+                Thread.Sleep(500); // Задержка для визуализации
+
+                map.MoveCreeps();
+                map.DisplayMap();
+                Thread.Sleep(500); // Задержка для визуализации
+
+                map.RestoreMap();
+                map.DisplayMap();
+                Thread.Sleep(500); // Задержка для визуализации
+
+                // Дополнительная логика игры
             }
         }
     }
+
+
 }
-
-
-
-
-
