@@ -32,6 +32,75 @@ class DotaMap
     }
 
 
+    class NewCreeper : Creeper
+    {
+        public NewCreeper(int x, int y)
+        {
+            X = x;
+            Y = y;
+            HasPassedThrough = false;
+            CurrentDirection = Direction.MovingLeft;
+        }
+    }
+
+    NewCreeper[] newCreeps;
+
+    void InitializeNewCreeps()
+    {
+        newCreeps = new NewCreeper[4];
+        for (int i = 0; i < newCreeps.Length; i++)
+        {
+            newCreeps[i] = new NewCreeper(47, 10 + i); // Начальная позиция для новых крипов
+        }
+    }
+
+    void MoveNewCreeps()
+    {
+        foreach (var creep in newCreeps)
+        {
+            if (creep.HasPassedThrough)
+            {
+                map[creep.X, creep.Y] = '0'; // Цвет новых крипов, если они прошли через точку (2, 47)
+            }
+            else
+            {
+                map[creep.X, creep.Y] = originalMap[creep.X, creep.Y];
+                isOccupied[creep.X, creep.Y] = false;
+            }
+
+            // Обновляем состояние и цвет новых крипов
+            switch (creep.CurrentDirection)
+            {
+                case Direction.MovingLeft:
+                    creep.Y++;
+                    if (creep.Y > 47)
+                    {
+                        creep.CurrentDirection = Direction.MovingUp;
+                        creep.Y = 47;
+                        creep.X--;
+                    }
+                    break;
+
+                case Direction.MovingUp:
+                    creep.X--;
+                    if (creep.X < 2)
+                    {
+                        creep.CurrentDirection = Direction.MovingLeft;
+                        creep.X = 2;
+                        creep.Y++;
+                    }
+                    break;
+            }
+
+            if (creep.X == 2 && creep.Y == 47)
+            {
+                creep.HasPassedThrough = true; // Отмечаем, что крип прошел через точку (2, 47)
+            }
+        }
+    }
+
+
+
     void InitializeRedCreeps()
     {
         redCreeps = new RedCreeper[4];
@@ -42,12 +111,15 @@ class DotaMap
     }
 
 
-    enum Direction
+    public enum Direction
     {
-        MovingLeft,
+        MovingDown,
+        MovingRight,
         MovingUp,
-        MovingRight
+        MovingLeft,
+        Completed // Для завершения движения
     }
+
 
 
     public DotaMap()
@@ -56,6 +128,7 @@ class DotaMap
         SaveOriginalMap();
         InitializeCreeps();
         InitializeRedCreeps(); // Инициализируем красных крипов
+        InitializeNewCreeps(); // Инициализируем новые крипов
     }
 
 
@@ -273,6 +346,14 @@ class DotaMap
                 map[redCreep.X, redCreep.Y] = redCreep.HasPassedThrough ? 'о' : originalMap[redCreep.X, redCreep.Y];
             }
         }
+        foreach (var newCreep in newCreeps)
+        {
+            if (newCreep.X >= 0 && newCreep.X < size && newCreep.Y >= 0 && newCreep.Y < size)
+            {
+                isOccupied[newCreep.X, newCreep.Y] = false;
+                map[newCreep.X, newCreep.Y] = newCreep.HasPassedThrough ? 'о' : originalMap[newCreep.X, newCreep.Y];
+            }
+        }
 
         // Перемещаем обычных крипов
         foreach (var creep in creeps)
@@ -352,7 +433,69 @@ class DotaMap
                 }
             }
         }
-    }
+
+
+
+        foreach (var newCreep in newCreeps.ToList()) // Создаем копию списка, чтобы избежать проблем при изменении оригинала
+        {
+            if (newCreep.X >= 0 && newCreep.X < size && newCreep.Y >= 0 && newCreep.Y < size)
+            {
+                switch (newCreep.CurrentDirection)
+                {
+                    case Direction.MovingDown:
+                        if (newCreep.Y < 47) // Двигаемся вверх до (47, 47)
+                        {
+                            // Очистка текущего места
+                            isOccupied[newCreep.X, newCreep.Y] = false;
+                            map[newCreep.X, newCreep.Y] = ' '; // Очистить символ
+
+                            newCreep.Y++;
+                        }
+                        else
+                        {
+                            // Если достигли (47, 47), поворачиваем вправо
+                            newCreep.CurrentDirection = Direction.MovingRight;
+                        }
+                        break;
+
+                    case Direction.MovingRight:
+                        if (newCreep.X > 2) // Двигаемся влево до (2, 47)
+                        {
+                            // Очистка текущего места
+                            isOccupied[newCreep.X, newCreep.Y] = false;
+                            map[newCreep.X, newCreep.Y] = ' '; // Очистить символ
+
+                            newCreep.X--;
+                        }
+                        else
+                        {
+                            // Если достигли (2, 47), установка состояния Completed
+                            newCreep.CurrentDirection = Direction.Completed;
+                        }
+                        break;
+
+                    case Direction.Completed:
+                        // Опционально: обработка завершения движения
+                        break;
+                }
+
+                // Отображение крипов на карте
+                if (newCreep.X >= 0 && newCreep.X < size && newCreep.Y >= 0 && newCreep.Y < size)
+                {
+                    isOccupied[newCreep.X, newCreep.Y] = true;
+                    map[newCreep.X, newCreep.Y] = 'о'; // Символ для крипов
+
+                    // Для визуализации
+                    if (!newCreep.HasPassedThrough)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        newCreep.HasPassedThrough = true; // Помечаем, что крип уже прошел
+                    }
+                }
+            }
+
+
+        }
 
 
 
@@ -464,7 +607,7 @@ class DotaMap
                     {
                         isCreep = true;
                         // Если это крип, который начинается с (38, 2), устанавливаем зелёный цвет
-                        if (creep.X == 2 && creep.Y == 34)
+                        if (creep.X == 2 && creep.Y == 33)
                         {
                             Console.ForegroundColor = ConsoleColor.Red;
                         }
